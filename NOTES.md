@@ -1,20 +1,28 @@
 # NOTES
 
 ## Summary of changes
-(Detailed write-ups are in `handwritten/`.)
-- **SQL precedence bug** (repo query, `db/queries`, Oracle package): `A AND B OR C AND D` meant archived tasks leaked into results and the status filter was ignored for title matches. Parenthesised the `OR`. Also added an `id` tie-breaker to `ORDER BY` and escaped `%`/`_` in user input.
-- **Controller:** removed the `Thread.sleep` that slowed short/blank queries by up to 1s. Bad `status`/`page`/`pageSize` now return 400 instead of 500. Overflow-safe offset, `Locale.ROOT`, `println` replaced by SLF4J.
-- **Frontend:** stale responses could overwrite newer ones (AbortController); `loading` stuck on after an error and `error` never cleared; page not reset when filters changed; added 300ms debounce; rows stay visible while loading; aria-labels.
+
+(Detailed explanations are in the `handwritten/` folder.)
+
+* **Search bug:** The SQL search used `AND` and `OR` without proper brackets. Because of this, archived tasks could appear and the status filter could be ignored in some searches. I added brackets to fix the search logic. I also handled special characters such as `%` and `_` and added `id` as a second sorting value.
+* **Backend:** Removed an unnecessary 1-second delay. Added validation for `status`, `page`, and `pageSize` so invalid values return a `400` error instead of a `500` error. Also made the page offset calculation safer and replaced `println` with proper logging.
+* **Frontend:** Fixed an issue where an older search result could replace a newer result. I used `AbortController` to cancel the older request. Added a 300ms delay before searching, fixed loading and error states, reset the page when filters change, and added better accessibility labels.
 
 ## Assumptions
-Archived tasks should never be listed. The status filter applies to title and description matches alike. Max page size 100.
+
+* Archived tasks should never be shown.
+* The status filter should work for both title and description searches.
+* The maximum page size is 100.
 
 ## Deliberately not changed
-- Pagination is still in memory (`subList`). Fine at ~50 rows. I did not rewrite it to `Pageable` without being able to test against the real stack, and I wanted a small diff.
-- No auth, DTOs, `status` String→enum, CORS config, or committed tests.
+
+* Pagination still happens in memory because the current data is small. I did not make a bigger database change without testing the complete application.
+* I did not add authentication, DTOs, enums, CORS changes, or new committed tests.
 
 ## Biggest remaining risk
-In-memory pagination plus `LIKE '%x%'` on `LOWER()` columns is a full scan that loads every match per request, so it degrades as rows grow. The H2 console and unauthenticated API are next.
+
+The search can become slower when there are many tasks because it searches through the data using `LIKE`. The H2 console and unauthenticated API would also need more attention for a production application.
 
 ## Tools used
-Claude helped review the code, draft the fixes and write throwaway tests. I reproduced the SQL bug on the seed data, ran Vitest tests (fail before, pass after; not committed) and checked the controller logic against stubs. I understood and can explain each change.
+
+I used Chatgpt to review the code, understand the bugs, suggest fixes, and create temporary tests. I tested the SQL problem with the seed data and checked the frontend and backend changes. I understood the changes I made and can explain them.
